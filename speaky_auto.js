@@ -2168,7 +2168,17 @@ async function iniciar(){
 
     /* If captured data had 0 pending lessons, also check if app intercepted enrollment
        or open-lesson calls we can use */
-    if(!lessons.length&&window.__spReqLog){\n      var _olReqs=window.__spReqLog.filter(function(r){return r.url.indexOf('lesson/command')>-1&&r.reqBody&&r.reqBody.commandType==='open-lesson'&&r.status&&r.status<400})\n      if(_olReqs.length){\n        log(_olReqs.length+' open-lesson request(s) capturado(s) do app','ok')\n        var _seen0=new Set()\n        _olReqs.forEach(function(r){\n          var lid=r.reqBody&&r.reqBody.commandData&&r.reqBody.commandData.openLesson&&r.reqBody.commandData.openLesson.lessonId\n          if(lid&&!_seen0.has(lid)){_seen0.add(lid);lessons.push({id:lid,title:'Lesson',_directLessonId:lid})}\n        })\n      }\n    }
+    if(!lessons.length&&window.__spReqLog){
+      var _olReqs=window.__spReqLog.filter(function(r){return r.url.indexOf('lesson/command')>-1&&r.reqBody&&r.reqBody.commandType==='open-lesson'&&r.status&&r.status<400})
+      if(_olReqs.length){
+        log(_olReqs.length+' open-lesson request(s) capturado(s) do app','ok')
+        var _seen0=new Set()
+        _olReqs.forEach(function(r){
+          var lid=r.reqBody&&r.reqBody.commandData&&r.reqBody.commandData.openLesson&&r.reqBody.commandData.openLesson.lessonId
+          if(lid&&!_seen0.has(lid)){_seen0.add(lid);lessons.push({id:lid,title:'Lesson',_directLessonId:lid})}
+        })
+      }
+    }
 
     /* Source 2: Our own BFF level-details call */
     if(!lessons.length){
