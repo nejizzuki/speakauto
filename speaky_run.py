@@ -305,20 +305,29 @@ async def login_via_sed_sso(ra, senha, cap_key=None, headless=True):
                 pass
 
         print('[SP] navegando para URL SSO...', flush=True)
-        await page.goto(speaky_sso_url, wait_until='domcontentloaded', timeout=60000)
+        await page.goto(speaky_sso_url, wait_until='load', timeout=60000)
 
-        # Aguarda redirect SSO completar (ef.com → learn.better.efekta.com)
-        for _ in range(15):
-            cur = page.url
-            if 'efekta.com' in cur or ('ef.com' in cur and '/dashboard' in cur) or ('ef.com' in cur and '/home' in cur):
-                print(f'[SP] SSO completo: {cur[:80]}', flush=True)
-                break
-            await page.wait_for_timeout(2000)
+        # Aguarda redirect SSO sair da página initiate
+        try:
+            await page.wait_for_url(lambda u: 'oauth2/initiate' not in u, timeout=30000)
+        except Exception:
+            pass
 
-        await page.wait_for_timeout(3000)
+        # Aguarda app carregar (network idle)
+        try:
+            await page.wait_for_load_state('networkidle', timeout=30000)
+        except Exception:
+            pass
+
+        await page.wait_for_timeout(2000)
+
+        final_url = page.url
+        print(f'[SP] URL final: {final_url[:120]}', flush=True)
 
         # ── Extrai tokens do Speaky ───────────────────────────
         all_cookies = await context.cookies()
+        print(f'[SP] cookies disponíveis: {[c["name"] for c in all_cookies]}', flush=True)
+
         api_token = bff_token = None
 
         for ck in all_cookies:
@@ -328,9 +337,25 @@ async def login_via_sed_sso(ra, senha, cap_key=None, headless=True):
                     efid = json.loads(unquote(ck['value']))
                     api_token = efid.get('account')
                     bff_token = efid.get('access')
-                except Exception:
-                    pass
+                    print(f'[SP] efid_tokens encontrado no cookie (domain={ck["domain"]})', flush=True)
+                except Exception as e:
+                    print(f'[SP] erro parse efid_tokens: {e}', flush=True)
                 break
+
+        # Fallback: document.cookie via JS (inclui cookies do domínio atual)
+        if not bff_token:
+            try:
+                raw_cookie = await page.evaluate('''() => {
+                    var c = document.cookie.split(";").find(function(s){ return s.trim().startsWith("efid_tokens="); });
+                    return c ? decodeURIComponent(c.split("=").slice(1).join("=")) : null;
+                }''')
+                if raw_cookie:
+                    efid = json.loads(raw_cookie)
+                    api_token = efid.get('account') or api_token
+                    bff_token = efid.get('access') or bff_token
+                    print('[SP] efid_tokens via document.cookie JS', flush=True)
+            except Exception:
+                pass
 
         # Fallback: localStorage / sessionStorage
         if not bff_token:
