@@ -531,17 +531,24 @@ function getLevelDetails(){
 
 /* ===== OPEN LESSON ===== */
 function openLessonEnrollment(courseId,lessonContentId){
-  /* Try BFF first (API endpoint may have moved), then API */
-  return api('POST',BFF+'/progress/enrollments/'+courseId+'/open-lesson',{
-    nodeId:lessonContentId,
-    instructionsLocale:'en_US',
-    publishTag:'live'
-  }).catch(function(e1){
-    console.log('[SpeakyAuto] BFF enrollment failed:',e1.message.substring(0,80),'â€” trying API')
-    return api('POST',API+'/study/progress/enrollments/'+courseId+'/open-lesson',{
-      nodeId:lessonContentId,
-      instructionsLocale:'en_US',
-      publishTag:'live'
+  var body={nodeId:lessonContentId,instructionsLocale:'en_US',publishTag:'live'}
+  /* Try API first (standard), then BFF path, then cookie-only (no auth header) */
+  return api('POST',API+'/study/progress/enrollments/'+courseId+'/open-lesson',body)
+  .catch(function(e1){
+    console.log('[SpeakyAuto] API enrollment failed:',e1.message.substring(0,80),'â€” trying BFF path')
+    return api('POST',BFF+'/progress/enrollments/'+courseId+'/open-lesson',body)
+  })
+  .catch(function(e2){
+    console.log('[SpeakyAuto] BFF enrollment failed:',e2.message.substring(0,80),'â€” trying cookie-only')
+    /* Last resort: fetch with cookies only, no Authorization header */
+    return fetch(API+'/study/progress/enrollments/'+courseId+'/open-lesson',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      credentials:'include',
+      body:JSON.stringify(body)
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(t){throw new Error('cookie-only '+r.status+': '+t.substring(0,100))})
+      return r.json()
     })
   })
 }
@@ -1158,6 +1165,8 @@ function submitTask(lessonId,activityId,sessionId,task,version){
 async function processLesson(courseId,lesson){
   if(parado)return false
   window._spAutoSkipActive=true
+  /* Debug: log ALL fields of this lesson object */
+  console.log('[SpeakyAuto] processLesson input:',JSON.stringify(lesson).substring(0,500))
 
   var lessonId=null
 
@@ -2130,8 +2139,41 @@ async function iniciar(){
 
     var lessons=[]
 
-    /* Try BFF for lesson list */
+    /* Source 1: Use interceptor-captured level-details data from the APP's own call (most reliable) */
+    if(window.__spCapturedData&&window.__spCapturedData.levelDetails){
+      var _cld=window.__spCapturedData.levelDetails
+      log('Usando level-details capturado do app','ok')
+      console.log('[SpeakyAuto] captured levelDetails keys:',Object.keys(_cld))
+      if(_cld.units){
+        var _seen=new Set()
+        function _addLessonCap(l){if(l&&l.id&&!_seen.has(l.id)&&!l.isLocked&&l.progressState!=='passed'){_seen.add(l.id);lessons.push(l)}}
+        _cld.units.forEach(function(unit){
+          if(unit.isLocked)return
+          if(unit.lessons)unit.lessons.forEach(_addLessonCap)
+          if(unit.tests)unit.tests.forEach(_addLessonCap)
+          if(unit.progressTests)unit.progressTests.forEach(_addLessonCap)
+          if(unit.nodes)unit.nodes.forEach(function(n){_addLessonCap(n);if(n.lessons)n.lessons.forEach(_addLessonCap)})
+        })
+        /* log ALL lessons (including passed) for debugging */
+        _cld.units.forEach(function(u,ui){
+          var all=(u.lessons||[]).concat(u.tests||[]).concat(u.progressTests||[])
+          all.forEach(function(l){
+            console.log('[SpeakyAuto] captured lesson['+ui+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState,isLocked:l.isLocked}).substring(0,300))
+          })
+        })
+      }
+      if(lessons.length)log(lessons.length+' lesson(s) do cache interceptado','ok')
+      else log('level-details capturado mas 0 lessons pendentes (todas passed/locked?)','wn')
+    }
+
+    /* If captured data had 0 pending lessons, also check if app intercepted enrollment
+       or open-lesson calls we can use */
+    if(!lessons.length&&window.__spReqLog){\n      var _olReqs=window.__spReqLog.filter(function(r){return r.url.indexOf('lesson/command')>-1&&r.reqBody&&r.reqBody.commandType==='open-lesson'&&r.status&&r.status<400})\n      if(_olReqs.length){\n        log(_olReqs.length+' open-lesson request(s) capturado(s) do app','ok')\n        var _seen0=new Set()\n        _olReqs.forEach(function(r){\n          var lid=r.reqBody&&r.reqBody.commandData&&r.reqBody.commandData.openLesson&&r.reqBody.commandData.openLesson.lessonId\n          if(lid&&!_seen0.has(lid)){_seen0.add(lid);lessons.push({id:lid,title:'Lesson',_directLessonId:lid})}\n        })\n      }\n    }
+
+    /* Source 2: Our own BFF level-details call */
+    if(!lessons.length){
     try{
+      log('Buscando level-details via BFF...','') 
       var details=await api('GET',BFF+'/self-study/level-details?locale=en&courseId='+courseId)
       /* Debug: dump the raw lesson objects to see what fields exist (id, lessonId, contentId, etc.) */
       if(details&&details.units){
@@ -2139,36 +2181,38 @@ async function iniciar(){
         details.units.forEach(function(u,ui){
           var ls=u.lessons||[];var all=ls.concat(u.tests||[]).concat(u.progressTests||[]).concat(u.assessments||[])
           all.forEach(function(l){
-            console.log('[SpeakyAuto] lesson['+ui+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState,isLocked:l.isLocked}))
+            console.log('[SpeakyAuto] BFF lesson['+ui+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState,isLocked:l.isLocked}).substring(0,300))
           })
         })
-        var _seen=new Set()
-        function _addLesson(l){if(l&&l.id&&!_seen.has(l.id)&&!l.isLocked&&l.progressState!=='passed'){_seen.add(l.id);lessons.push(l)}}
+        var _seen2=new Set()
+        function _addLesson(l){if(l&&l.id&&!_seen2.has(l.id)&&!l.isLocked&&l.progressState!=='passed'){_seen2.add(l.id);lessons.push(l)}}
         details.units.forEach(function(unit){
           if(unit.isLocked)return
           if(unit.lessons)unit.lessons.forEach(_addLesson)
-          /* tests/progress tests may live under different keys */
           if(unit.tests)unit.tests.forEach(_addLesson)
           if(unit.progressTests)unit.progressTests.forEach(_addLesson)
           if(unit.assessments)unit.assessments.forEach(_addLesson)
-          /* some structures nest tests inside nodes/steps */
           if(unit.nodes)unit.nodes.forEach(function(n){_addLesson(n);if(n.lessons)n.lessons.forEach(_addLesson);if(n.tests)n.tests.forEach(_addLesson)})
         })
-        /* top-level tests/progressTests on the details object */
         if(details.tests)details.tests.forEach(_addLesson)
         if(details.progressTests)details.progressTests.forEach(_addLesson)
         if(details.assessments)details.assessments.forEach(_addLesson)
+      }else{
+        log('level-details sem units â€” resposta: '+JSON.stringify(details).substring(0,200),'er')
       }
-    }catch(e){}
+    }catch(e){
+      log('level-details BFF falhou: '+e.message.substring(0,80),'er')
+      console.error('[SpeakyAuto] level-details error:',e)
+    }
+    }
 
-    /* DOM fallback for lessons */
+    /* Source 3: DOM fallback for lessons */
     if(!lessons.length){
       var disc=discoverFromPage()
       if(disc&&disc.lessons.length){
-        /* NOTE: never override courseId with DOM-discovered one â€” the known courseId
-           from KNOWN_COURSES/BFF is the only valid enrollment ID for the API */
         lessons=disc.lessons
-        log('Lessons encontradas na pÃ¡gina','wn')
+        log('Lessons encontradas na pÃ¡gina (DOM)','wn')
+        log('âš  IDs da DOM podem nÃ£o funcionar com enrollment!','wn')
         /* Debug: dump DOM-discovered lesson objects */
         lessons.forEach(function(l,i){console.log('[SpeakyAuto] DOM lesson['+i+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState}))})
       }
