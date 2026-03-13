@@ -60,7 +60,7 @@ footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
 <div class="card">
   <div class="field">
     <label>RA (número do aluno)</label>
-    <input id="ra" type="text" placeholder="ex: 1234567" inputmode="numeric" autocomplete="username">
+    <input id="ra" type="text" placeholder="ex: 1090766099sp" autocomplete="username">
   </div>
   <div class="field">
     <label>Senha SED</label>
@@ -138,7 +138,8 @@ async function iniciar(){
   var senha = document.getElementById('senha').value
   var capKey = document.getElementById('capkey').value.trim()
 
-  if(!ra || !/^\d{4,}$/.test(ra)){ showAlert('Informe um RA válido (somente números).','err'); return }
+  if(!ra || ra.length < 4){ showAlert('Informe o RA (ex: 1090766099sp).','err'); return }
+  if(!/\d/.test(ra)){ showAlert('RA inválido.','err'); return }
   if(!senha){ showAlert('Informe a senha.','err'); return }
 
   var btn = document.getElementById('btn')
