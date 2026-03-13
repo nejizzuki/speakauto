@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AutoSala — Sala do Futuro SP</title>
-<meta name="description" content="Complete as plataformas da Sala do Futuro automaticamente. Gratuito para alunos da rede estadual de SP.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🎓</text></svg>">
+<title>SpeakAuto</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🗣️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -14,251 +13,225 @@
   --accent:#6366f1;--accent2:#818cf8;--green:#22c55e;--red:#ef4444;
   --yellow:#f59e0b;--text:#e2e8f0;--muted:#94a3b8;--radius:12px
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
-.logo{font-size:2rem;margin-bottom:4px}
-h1{font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,var(--accent2),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.subtitle{font-size:.85rem;color:var(--muted);margin-top:4px;margin-bottom:32px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:100%;max-width:460px}
-label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px}
+.logo{font-size:2.4rem;margin-bottom:6px}
+h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--accent2),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{font-size:.85rem;color:var(--muted);margin-top:4px;margin-bottom:28px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:100%;max-width:440px}
+label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;padding:10px 14px;outline:none;transition:border .2s}
 input:focus{border-color:var(--accent)}
 input::placeholder{color:#475569}
-.field{margin-bottom:16px}
-.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s}
+.field{margin-bottom:14px}
+details summary{font-size:.78rem;color:var(--muted);cursor:pointer;margin-bottom:10px;user-select:none}
+details summary:hover{color:var(--text)}
+.btn{width:100%;padding:13px;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s;margin-top:4px}
 .btn:active{transform:scale(.98)}
 .btn-primary{background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff}
 .btn-primary:hover{opacity:.9}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
 .divider{height:1px;background:var(--border);margin:20px 0}
 #status-box{display:none;margin-top:20px}
-.progress-wrap{background:var(--surface2);border-radius:6px;height:6px;overflow:hidden;margin-bottom:12px}
-.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#a78bfa);border-radius:6px;width:0%;transition:width .4s}
-.progress-label{font-size:.8rem;color:var(--muted);margin-bottom:8px}
-.log-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:.78rem;line-height:1.6;color:#cbd5e1}
+.progress-wrap{background:var(--surface2);border-radius:6px;height:6px;margin-bottom:10px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#a78bfa);border-radius:6px;width:0%;transition:width .5s}
+.progress-label{font-size:.8rem;color:var(--muted);margin-bottom:6px}
+.log-box{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:12px 14px;height:220px;overflow-y:auto;font-family:'Consolas','Courier New',monospace;font-size:.76rem;line-height:1.7;color:#94a3b8;white-space:pre-wrap;word-break:break-all}
 .log-box .ok{color:var(--green)}
 .log-box .err{color:var(--red)}
-.log-box .info{color:var(--yellow)}
-.results{margin-top:20px;display:flex;flex-direction:column;gap:8px}
-.result-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:.85rem}
-.result-item .icon{font-size:1.1rem;flex-shrink:0}
-.result-item .task{font-weight:500;flex:1}
-.result-item .detail{color:var(--muted);font-size:.78rem;text-align:right;max-width:180px;word-break:break-word}
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600}
-.badge-ok{background:#14532d;color:var(--green)}
-.badge-err{background:#450a0a;color:var(--red)}
-.badge-info{background:#451a03;color:var(--yellow)}
-.badge-skip{background:#1e293b;color:var(--muted)}
+.log-box .warn{color:var(--yellow)}
 .alert{border-radius:8px;padding:10px 14px;font-size:.82rem;margin-top:12px}
 .alert-err{background:#450a0a;border:1px solid #7f1d1d;color:#fca5a5}
 .alert-ok{background:#052e16;border:1px solid #14532d;color:#86efac}
-footer{margin-top:40px;font-size:.75rem;color:#475569;text-align:center}
+.result-grid{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.stat-num{font-size:1.8rem;font-weight:700}
+.stat-lbl{font-size:.72rem;color:var(--muted);margin-top:2px}
+.stat-ok .stat-num{color:var(--green)}
+.stat-err .stat-num{color:var(--red)}
+footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
 </style>
 </head>
 <body>
 
-<div class="logo">🎓</div>
-<h1>AutoSala</h1>
-<p class="subtitle">Sala do Futuro · Plataformas CMSP · Auto-complete</p>
+<div class="logo">🗣️</div>
+<h1>SpeakAuto</h1>
+<p class="subtitle">Complete todas as lições do Speaky automaticamente</p>
 
 <div class="card">
   <div class="field">
-    <label for="ra">RA — Registro do Aluno</label>
-    <input id="ra" type="text" placeholder="ex: 1234567" inputmode="numeric" autocomplete="off">
+    <label>E-mail</label>
+    <input id="email" type="email" placeholder="seu@email.com" autocomplete="email">
   </div>
   <div class="field">
-    <label for="senha">Senha</label>
-    <input id="senha" type="password" placeholder="sua senha SED" autocomplete="current-password">
+    <label>Senha</label>
+    <input id="senha" type="password" placeholder="sua senha do Speaky" autocomplete="current-password">
   </div>
+
+  <details>
+    <summary>⚙️ Chave CapSolver (opcional — para resolver captchas)</summary>
+    <div class="field" style="margin-top:8px">
+      <label>CapSolver API Key</label>
+      <input id="capkey" type="text" placeholder="CAP-xxxxxxxxxxxxxxxx">
+    </div>
+  </details>
 
   <div id="alert-box"></div>
 
-  <button class="btn btn-primary" id="btn" onclick="iniciar()">🚀 Fazer Tudo Automaticamente</button>
+  <button class="btn btn-primary" id="btn" onclick="iniciar()">🚀 Fazer Tudo no Speaky</button>
 
   <div id="status-box">
     <div class="divider"></div>
-    <div class="progress-label" id="progress-label">Iniciando...</div>
-    <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-label" id="prog-label">Conectando...</div>
+    <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
     <div class="log-box" id="log-box"></div>
-    <div class="results" id="results-box"></div>
+    <div class="result-grid" id="result-grid" style="display:none"></div>
   </div>
 </div>
 
-<footer>Ferramenta gratuita e sem fins lucrativos para alunos da rede estadual de SP</footer>
+<footer>Ferramenta gratuita para uso pessoal</footer>
 
 <script>
 var WORKER = 'https://profissional.nejizzuki.xyz'
-var _ra = '', _polling = null, _logLines = []
+var _jobId = null
+var _poll = null
+var _lastLogLen = 0
 
-function log(msg, cls) {
-  cls = cls || ''
-  _logLines.push('<span class="' + cls + '">' + escHtml(msg) + '</span>')
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+function showAlert(msg, type){
+  document.getElementById('alert-box').innerHTML =
+    '<div class="alert alert-'+type+'">' + esc(msg) + '</div>'
+}
+function clearAlert(){ document.getElementById('alert-box').innerHTML = '' }
+
+function setProgress(pct, label){
+  document.getElementById('prog-bar').style.width = Math.min(100,pct) + '%'
+  if(label) document.getElementById('prog-label').textContent = label
+}
+
+function appendLog(lines){
   var box = document.getElementById('log-box')
-  box.innerHTML = _logLines.join('\n')
+  lines.forEach(function(line){
+    var cls = ''
+    var l = line.toLowerCase()
+    if(l.includes('erro') || l.includes('error') || l.includes('falhou') || l.includes('fail')) cls = 'err'
+    else if(l.includes('ok') || l.includes('concluído') || l.includes('done') || l.includes('✓') || l.includes('lição')) cls = 'ok'
+    else if(l.includes('aviso') || l.includes('warn') || l.includes('captcha')) cls = 'warn'
+    box.innerHTML += '<span class="'+cls+'">' + esc(line) + '\n</span>'
+  })
   box.scrollTop = box.scrollHeight
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+function showResult(res){
+  var grid = document.getElementById('result-grid')
+  var done = res.lessons_done || res.done || 0
+  var errs = res.lessons_error || res.errors || 0
+  grid.style.display = 'grid'
+  grid.innerHTML =
+    '<div class="stat-box stat-ok"><div class="stat-num">'+done+'</div><div class="stat-lbl">lições feitas</div></div>' +
+    '<div class="stat-box stat-err"><div class="stat-num">'+errs+'</div><div class="stat-lbl">erros</div></div>'
 }
 
-function setProgress(pct, label) {
-  var bar = document.getElementById('progress-bar')
-  var lbl = document.getElementById('progress-label')
-  bar.style.width = Math.min(100, pct) + '%'
-  if (label) lbl.textContent = label
-}
-
-function showAlert(msg, type) {
-  var box = document.getElementById('alert-box')
-  box.innerHTML = '<div class="alert alert-' + type + '">' + escHtml(msg) + '</div>'
-}
-
-function clearAlert() {
-  document.getElementById('alert-box').innerHTML = ''
-}
-
-function renderResults(results) {
-  if (!results || !results.length) return
-  var box = document.getElementById('results-box')
-  box.innerHTML = ''
-  results.forEach(function(r) {
-    var st = r.status || 'skip'
-    var icons = {ok: '✅', erro: '❌', info: '⚠️', skip: '⏭️'}
-    var icon = icons[st] || '•'
-    var badgeCls = 'badge-' + (st === 'erro' ? 'err' : st === 'ok' ? 'ok' : st === 'info' ? 'info' : 'skip')
-    box.innerHTML += '<div class="result-item">' +
-      '<span class="icon">' + icon + '</span>' +
-      '<span class="task">' + escHtml(r.task || '') + '</span>' +
-      '<span class="badge ' + badgeCls + '">' + escHtml(st) + '</span>' +
-      (r.detail ? '<span class="detail">' + escHtml(r.detail) + '</span>' : '') +
-      '</div>'
-  })
-}
-
-async function iniciar() {
+async function iniciar(){
   clearAlert()
-  var ra = document.getElementById('ra').value.trim().replace(/\D/g,'')
+  var email = document.getElementById('email').value.trim()
   var senha = document.getElementById('senha').value
+  var capKey = document.getElementById('capkey').value.trim()
 
-  if (!ra || ra.length < 5) { showAlert('Informe o RA corretamente.', 'err'); return }
-  if (!senha) { showAlert('Informe a senha.', 'err'); return }
-
-  _ra = ra
-  _logLines = []
+  if(!email || !email.includes('@')){ showAlert('Informe um e-mail válido.','err'); return }
+  if(!senha){ showAlert('Informe a senha.','err'); return }
 
   var btn = document.getElementById('btn')
   btn.disabled = true
-  btn.textContent = '⏳ Processando...'
+  btn.textContent = '⏳ Rodando...'
   document.getElementById('status-box').style.display = 'block'
-  document.getElementById('results-box').innerHTML = ''
-  setProgress(5, 'Adicionando conta...')
-  log('RA: ' + ra)
+  document.getElementById('result-grid').style.display = 'none'
+  document.getElementById('log-box').innerHTML = ''
+  _lastLogLen = 0
+  setProgress(5, 'Conectando ao servidor...')
 
   try {
-    // Step 1: add account
-    var r1 = await fetch(WORKER + '/cmsp/accounts', {
+    var body = {email: email, senha: senha}
+    if(capKey) body.cap_key = capKey
+
+    var r = await fetch(WORKER + '/sp/portal/run', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ra: ra, senha: senha})
+      body: JSON.stringify(body)
     })
-    var d1 = await r1.json().catch(function(){return {}})
-    if (!r1.ok || d1.error) {
-      showAlert(d1.error || d1.erro || 'Erro ao adicionar conta (HTTP ' + r1.status + ')', 'err')
-      reset()
-      return
-    }
-    log('Conta adicionada ✔', 'ok')
-    setProgress(15, 'Iniciando automação...')
+    var d = await r.json().catch(function(){return {}})
 
-    // Short wait for scan to start
-    await sleep(2000)
-
-    // Step 2: trigger autocomplete
-    var r2 = await fetch(WORKER + '/cmsp/autocomplete/' + ra, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: '{}'
-    })
-    var d2 = await r2.json().catch(function(){return {}})
-    if (!r2.ok && r2.status !== 409) {
-      showAlert(d2.error || d2.erro || 'Erro ao iniciar automação', 'err')
-      reset()
-      return
+    if(!r.ok || d.error || d.erro){
+      showAlert(d.error || d.erro || 'Erro HTTP ' + r.status, 'err')
+      reset(); return
     }
-    if (r2.status === 409) {
-      log('Automação já em andamento — aguardando...', 'info')
-    } else {
-      log('Automação iniciada ✔', 'ok')
-    }
-    setProgress(25, 'Aguardando resultados...')
 
-    // Step 3: poll status
-    startPolling()
-  } catch(e) {
+    _jobId = d.job_id
+    appendLog(['Job iniciado: ' + _jobId.slice(0,8) + '...'])
+    setProgress(10, 'Iniciando browser...')
+    startPoll()
+  } catch(e){
     showAlert('Erro de conexão: ' + e.message, 'err')
     reset()
   }
 }
 
-function startPolling() {
-  if (_polling) clearInterval(_polling)
+function startPoll(){
+  if(_poll) clearInterval(_poll)
   var ticks = 0
-  _polling = setInterval(async function() {
+  _poll = setInterval(async function(){
     ticks++
-    if (ticks > 120) { // 10min max
-      clearInterval(_polling)
-      log('Tempo esgotado. Verifique o hub.', 'err')
-      reset()
-      return
+    if(ticks > 180){ // 15min max
+      clearInterval(_poll)
+      appendLog(['[timeout] Processo demorou demais.'])
+      reset(); return
     }
     try {
-      var r = await fetch(WORKER + '/cmsp/status/' + _ra)
+      var r = await fetch(WORKER + '/sp/portal/status/' + _jobId)
       var d = await r.json().catch(function(){return {}})
-      if (!r.ok || d.erro || d.error) return
+      if(!r.ok) return
 
-      var st = d.status || d
-      var running = st.running
-      var progress = st.progress || ''
-      var platform = st.platform || ''
-      var results = st.results || []
-
-      var pct = running ? Math.min(90, 25 + ticks * 0.6) : 100
-      var label = running
-        ? (platform ? platform + '...' : (progress || 'Processando...'))
-        : 'Concluído!'
-      setProgress(pct, label)
-
-      if (progress && progress !== _lastProgress) {
-        _lastProgress = progress
-        log(progress, 'info')
+      // append new log lines
+      var logs = d.log || []
+      if(logs.length > _lastLogLen){
+        appendLog(logs.slice(_lastLogLen))
+        _lastLogLen = logs.length
       }
 
-      if (!running && results.length > 0) {
-        clearInterval(_polling)
-        renderResults(results)
-        var ok = results.filter(function(r){return r.status==='ok'}).length
-        var err = results.filter(function(r){return r.status==='erro'}).length
-        log('Finalizado: ' + ok + ' ok, ' + err + ' erros', ok > 0 ? 'ok' : 'info')
-        showAlert(ok + ' plataformas concluídas' + (err ? ', ' + err + ' erros' : '') + '.', ok > 0 ? 'ok' : 'err')
+      var status = d.status || ''
+      var pct = status === 'running' ? Math.min(90, 10 + ticks * 0.5) : 100
+
+      if(status === 'running'){
+        setProgress(pct, 'Fazendo lições...')
+      } else if(status === 'done'){
+        clearInterval(_poll)
+        setProgress(100, 'Concluído! ✔')
+        var res = d.result || {}
+        if(res.ok || (res.lessons_done > 0)){
+          showAlert('Tudo certo! ' + (res.lessons_done || 0) + ' lições concluídas.', 'ok')
+          showResult(res)
+        } else {
+          showAlert(res.error || 'Concluído com erros. Veja o log.', 'err')
+          showResult(res)
+        }
         reset()
-      } else if (!running && ticks > 5) {
-        clearInterval(_polling)
-        log('Processo finalizado.', 'info')
+      } else if(status === 'error'){
+        clearInterval(_poll)
+        setProgress(100, 'Erro')
+        var res = d.result || {}
+        showAlert(res.error || 'Erro no processo. Veja o log.', 'err')
+        showResult(res)
         reset()
       }
-    } catch(e) {}
-  }, 5000)
+    } catch(e){}
+  }, 4000)
 }
 
-var _lastProgress = ''
-
-function reset() {
+function reset(){
   var btn = document.getElementById('btn')
   btn.disabled = false
-  btn.textContent = '🚀 Fazer Tudo Automaticamente'
+  btn.textContent = '🚀 Fazer Tudo no Speaky'
 }
-
-function sleep(ms) { return new Promise(function(r){setTimeout(r,ms)}) }
 </script>
 </body>
 </html>
