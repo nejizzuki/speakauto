@@ -15,8 +15,17 @@ function getFreshTokens(){
     if(c){
       var v=decodeURIComponent(c.split('=').slice(1).join('='))
       var efid=JSON.parse(v)
-      tokens.api=efid.account||null
-      tokens.bff=efid.access||null
+      /* try the known field name first, then exhaustive search */
+      tokens.api=efid.account||efid.api||efid.id_token||efid.idToken||efid.token||efid.access_token||efid.accessToken||null
+      tokens.bff=efid.access||efid.bff||null
+      /* last resort: any string field we haven't used yet (likely a JWT) */
+      if(!tokens.api){
+        Object.keys(efid).forEach(function(k){
+          if(!tokens.api&&typeof efid[k]==='string'&&efid[k].length>20&&efid[k]!==tokens.bff)tokens.api=efid[k]
+        })
+      }
+      /* if still nothing, try access as API token too (some apps use same token for both) */
+      if(!tokens.api)tokens.api=tokens.bff
     }
   }catch(e){}
   if(!tokens.bff){
@@ -35,6 +44,9 @@ function getFreshTokens(){
   }
   if(!tokens.bff){try{var m=window.location.hash.match(/access=([0-9a-f]{64})/);if(m)tokens.bff=m[1]}catch(e){}}
   if(!tokens.bff&&window.__spCapturedAuth)tokens.bff=window.__spCapturedAuth
+  /* also pull in interceptor-captured API token */
+  if(!tokens.api&&window.__spCapturedApiAuth)tokens.api=window.__spCapturedApiAuth
+  if(!tokens.api)tokens.api=tokens.bff /* final fallback */
   return tokens
 }
 
@@ -55,12 +67,17 @@ if(!window.__spIntercepted){
     try{if(opts.body)_logEntry.reqBody=JSON.parse(opts.body)}catch(e){_logEntry.reqBody=opts.body}
     window.__spReqLog.push(_logEntry)
     if(window.__spReqLog.length>200)window.__spReqLog.shift() /* keep last 200 */
-    if(url.indexOf('/gap/bff/')>-1){
+    /* capture Bearer tokens from both BFF and API domains */
+    if(url.indexOf('/gap/bff/')>-1||url.indexOf('api.study.better.efekta.com')>-1||url.indexOf('learn.better.efekta.com')>-1){
       try{
         var h=opts.headers
         if(h){
           var auth=h instanceof Headers?(h.get('Authorization')||h.get('authorization')):(h['Authorization']||h['authorization'])
-          if(auth&&auth.indexOf('Bearer ')===0)window.__spCapturedAuth=auth.substring(7)
+          if(auth&&auth.indexOf('Bearer ')===0){
+            var _tok=auth.substring(7)
+            if(url.indexOf('/gap/bff/')>-1||url.indexOf('learn.better.efekta.com')>-1)window.__spCapturedAuth=_tok
+            if(url.indexOf('api.study.better.efekta.com')>-1)window.__spCapturedApiAuth=_tok
+          }
         }
       }catch(e){}
     }
@@ -449,12 +466,18 @@ function api(method,url,body){
   var isApi=url.indexOf(API)===0
   var isBff=url.indexOf(BFF)===0
 
+  /* build ordered API token list â€” try every token we have */
+  var _apiTokens=(function(){
+    var _seen=new Set(),_list=[]
+    function _add(t){if(t&&typeof t==='string'&&t.length>10&&!_seen.has(t)){_seen.add(t);_list.push(t)}}
+    _add(tokens.api);_add(tokens.bff);_add(window.__spCapturedApiAuth);_add(window.__spCapturedAuth)
+    return _list
+  }())
+
   function attempt(strat){
     var t
     if(isApi){
-      if(strat===0)t=tokens.api||null
-      else if(strat===1)t=tokens.bff||window.__spCapturedAuth||null
-      else t=null
+      t=strat<_apiTokens.length?_apiTokens[strat]:null
     }
     else if(isBff){
       if(strat===0)t=tokens.bff
@@ -472,8 +495,8 @@ function api(method,url,body){
 
     return fetch(url,opts).then(function(r){
       if(!r.ok){
-        if(isApi&&(r.status===401||r.status===404)&&strat<2){
-          console.log('[SpeakyAuto] API '+r.status+' strategy '+strat+', trying next...')
+        if(isApi&&r.status===401&&strat<_apiTokens.length){
+          console.log('[SpeakyAuto] API 401 strategy '+strat+'/'+_apiTokens.length+', trying next...')
           return attempt(strat+1)
         }
         if(isBff&&r.status===401&&strat<2){
@@ -2040,6 +2063,8 @@ async function iniciar(){
   }catch(e){/* BFF unavailable, proceed with known courses */}
 
   log('Iniciando â€” '+targetCourseIds.length+' curso(s) selecionado(s)','hi')
+  /* Debug: log token availability */
+  ;(function(){var _t=getFreshTokens();console.log('[SpeakyAuto] TOKEN STATUS â†’ api:'+(!!_t.api?'âœ“ ('+_t.api.substring(0,6)+'...)':'âœ— NULL')+' bff:'+(!!_t.bff?'âœ“ ('+_t.bff.substring(0,6)+'...)':'âœ— NULL')+' capturedApi:'+(!!window.__spCapturedApiAuth?'âœ“':'âœ—')+' capturedBff:'+(!!window.__spCapturedAuth?'âœ“':'âœ—'))}())
 
   var totalLessonsAll=0,doneLessons=0
 
