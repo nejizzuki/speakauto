@@ -55,16 +55,16 @@ footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
 
 <div class="logo">🗣️</div>
 <h1>SpeakAuto</h1>
-<p class="subtitle">Complete todas as lições do Speaky automaticamente</p>
+<p class="subtitle">Complete todas as lições do Speaky via Sala do Futuro</p>
 
 <div class="card">
   <div class="field">
-    <label>E-mail</label>
-    <input id="email" type="email" placeholder="seu@email.com" autocomplete="email">
+    <label>RA (número do aluno)</label>
+    <input id="ra" type="text" placeholder="ex: 1234567" inputmode="numeric" autocomplete="username">
   </div>
   <div class="field">
-    <label>Senha</label>
-    <input id="senha" type="password" placeholder="sua senha do Speaky" autocomplete="current-password">
+    <label>Senha SED</label>
+    <input id="senha" type="password" placeholder="sua senha do Sala do Futuro" autocomplete="current-password">
   </div>
 
   <details>
@@ -134,11 +134,11 @@ function showResult(res){
 
 async function iniciar(){
   clearAlert()
-  var email = document.getElementById('email').value.trim()
+  var ra = document.getElementById('ra').value.trim()
   var senha = document.getElementById('senha').value
   var capKey = document.getElementById('capkey').value.trim()
 
-  if(!email || !email.includes('@')){ showAlert('Informe um e-mail válido.','err'); return }
+  if(!ra || !/^\d{4,}$/.test(ra)){ showAlert('Informe um RA válido (somente números).','err'); return }
   if(!senha){ showAlert('Informe a senha.','err'); return }
 
   var btn = document.getElementById('btn')
@@ -151,7 +151,7 @@ async function iniciar(){
   setProgress(5, 'Conectando ao servidor...')
 
   try {
-    var body = {email: email, senha: senha}
+    var body = {ra: ra, senha: senha}
     if(capKey) body.cap_key = capKey
 
     var r = await fetch(WORKER + '/sp/portal/run', {
