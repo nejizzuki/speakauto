@@ -531,26 +531,47 @@ function getLevelDetails(){
 
 /* ===== OPEN LESSON ===== */
 function openLessonEnrollment(courseId,lessonContentId){
-  return api('POST',API+'/study/progress/enrollments/'+courseId+'/open-lesson',{
+  /* Try BFF first (API endpoint may have moved), then API */
+  return api('POST',BFF+'/progress/enrollments/'+courseId+'/open-lesson',{
     nodeId:lessonContentId,
     instructionsLocale:'en_US',
     publishTag:'live'
+  }).catch(function(e1){
+    console.log('[SpeakyAuto] BFF enrollment failed:',e1.message.substring(0,80),'â€” trying API')
+    return api('POST',API+'/study/progress/enrollments/'+courseId+'/open-lesson',{
+      nodeId:lessonContentId,
+      instructionsLocale:'en_US',
+      publishTag:'live'
+    })
   })
 }
 
-function openLessonCommand(lessonId){
+function openLessonCommand(lessonId,courseId){
   return api('POST',API+'/study/lesson/command',{
     commandType:'open-lesson',
     commandData:{
       openLesson:{
         lessonId:lessonId,
-        instructionsLocale:'en_US'
+        instructionsLocale:'en_US',
+        publishTag:'live'
       }
     },
     clientState:{
       lastVersion:0,
       lessonId:lessonId
     }
+  }).then(function(data){
+    /* If 0 events from API, try via BFF */
+    var evts=data&&data.eventHistory&&data.eventHistory.events||[]
+    if(evts.length===0){
+      console.log('[SpeakyAuto] API open-lesson returned 0 events, trying BFF...')
+      return api('POST',BFF+'/lesson/command',{
+        commandType:'open-lesson',
+        commandData:{openLesson:{lessonId:lessonId,instructionsLocale:'en_US',publishTag:'live'}},
+        clientState:{lastVersion:0,lessonId:lessonId}
+      }).catch(function(){ return data }) /* BFF failed, return original */
+    }
+    return data
   })
 }
 
@@ -1145,31 +1166,33 @@ async function processLesson(courseId,lesson){
     lessonId=lesson._directLessonId
     log('lessonId direto: '+lessonId.substring(0,8)+'...','ok')
   }else{
-    /* 1) open enrollment */
+    /* 1) open enrollment â€” multiple strategies */
     var enrollment
-    /* check interceptor cache first (app may have already enrolled this lesson) */
-    if(window.__spEnrollmentCache&&window.__spEnrollmentCache[lesson.id]){
-      lessonId=window.__spEnrollmentCache[lesson.id]
+    var _nodeId=lesson.contentId||lesson.nodeId||lesson.id
+
+    /* Strategy A: if lesson object already has a lessonId field from BFF, use it directly */
+    if(lesson.lessonId&&lesson.lessonId!==lesson.id){
+      lessonId=lesson.lessonId
+      log('lessonId do BFF: '+lessonId.substring(0,8)+'...','ok')
+    }
+    /* Strategy B: check interceptor enrollment cache */
+    else if(window.__spEnrollmentCache&&(window.__spEnrollmentCache[lesson.id]||window.__spEnrollmentCache[_nodeId])){
+      lessonId=window.__spEnrollmentCache[lesson.id]||window.__spEnrollmentCache[_nodeId]
       log('lessonId do cache: '+lessonId.substring(0,8)+'...','ok')
-    }else{
-    try{
-      /* try the most specific nodeId field first, then fall back */
-      var _nodeId=lesson.contentId||lesson.nodeId||lesson.id
-      /* also check cache with the contentId/nodeId variants */
-      if(!lessonId&&window.__spEnrollmentCache&&window.__spEnrollmentCache[_nodeId]){
-        lessonId=window.__spEnrollmentCache[_nodeId]
-        log('lessonId do cache (alt): '+lessonId.substring(0,8)+'...','ok')
+    }
+    /* Strategy C: call enrollment endpoints (BFF then API) */
+    else{
+      try{
+        enrollment=await openLessonEnrollment(courseId,_nodeId)
+        lessonId=enrollment&&(enrollment.lessonId||enrollment.id)||null
+      }catch(e){
+        log('Enrollment falhou: '+e.message.substring(0,60),'wn')
       }
-      if(!lessonId)enrollment=await openLessonEnrollment(courseId,_nodeId)
-    }catch(e){
-      /* enrollment failed â€” maybe lesson.id IS already a lessonId, try open-lesson directly */
-      log('Enrollment falhou: '+e.message.substring(0,50)+' â€” tentando como lessonId direto','wn')
-      lessonId=lesson.id
-    }
-    if(!lessonId){
-      lessonId=enrollment.lessonId
-      if(!lessonId){log('  sem lessonId','er');console.error('[SpeakyAuto] enrollment sem lessonId:',JSON.stringify(enrollment).substring(0,300));window._spAutoSkipActive=false;return false}
-    }
+      /* Strategy D: if enrollment didn't return lessonId, use contentId and rely on open-lesson to create session */
+      if(!lessonId){
+        lessonId=_nodeId
+        log('Usando contentId como lessonId: '+lessonId.substring(0,8)+'...','wn')
+      }
     }
     console.log('[SpeakyAuto] lessonId:',lessonId)
     log('lessonId: '+lessonId.substring(0,8)+'...','ok')
@@ -1180,13 +1203,42 @@ async function processLesson(courseId,lesson){
   /* 2) open lesson command -> get activities with answers */
   var cmdResp
   try{
-    cmdResp=await openLessonCommand(lessonId)
+    cmdResp=await openLessonCommand(lessonId,courseId)
   }catch(e){
     log('Erro ao carregar '+lesson.title+': '+e.message,'er')
     window._spAutoSkipActive=false;return false
   }
 
   var events=cmdResp.eventHistory&&cmdResp.eventHistory.events||[]
+
+  /* If 0 events AND we used a contentId (not a real lessonId from enrollment/BFF),
+     try open-lesson with the contentId as a "start new lesson" â€” sometimes the server
+     creates a new lesson session on first open-lesson with the contentId */
+  if(events.length===0&&!lesson._directLessonId&&!lesson.lessonId){
+    log('0 eventos â€” tentando descobrir lessonId correto...','wn')
+    /* Try BFF self-study start-lesson / open-lesson endpoints */
+    var _bffPaths=[
+      BFF+'/self-study/start-lesson',
+      BFF+'/self-study/open-lesson',
+      BFF+'/study/start-lesson'
+    ]
+    for(var bi=0;bi<_bffPaths.length&&events.length===0;bi++){
+      try{
+        var _br=await api('POST',_bffPaths[bi],{courseId:courseId,nodeId:lessonId,contentId:lessonId,lessonId:lessonId,instructionsLocale:'en_US',publishTag:'live'})
+        if(_br&&_br.lessonId&&_br.lessonId!==lessonId){
+          lessonId=_br.lessonId
+          log('lessonId descoberto via BFF: '+lessonId.substring(0,8)+'...','ok')
+          /* Re-open with correct lessonId */
+          cmdResp=await openLessonCommand(lessonId,courseId)
+          events=cmdResp.eventHistory&&cmdResp.eventHistory.events||[]
+        }else if(_br&&_br.eventHistory&&_br.eventHistory.events&&_br.eventHistory.events.length>0){
+          cmdResp=_br
+          events=_br.eventHistory.events
+          log('Eventos via BFF path #'+(bi+1),'ok')
+        }
+      }catch(e){}
+    }
+  }
 
   /* find sessionId â€” scan in REVERSE to get the MOST RECENT session event
      (open-lesson appends a new student-opened-lesson near the END of the event list) */
@@ -1427,7 +1479,7 @@ async function processLesson(courseId,lesson){
     /* 4a) Re-open to get fresh event history and check status */
     if(!lessonPassed){
     try{
-      var cmdResp2=await openLessonCommand(lessonId)
+      var cmdResp2=await openLessonCommand(lessonId,courseId)
       var events2=cmdResp2.eventHistory&&cmdResp2.eventHistory.events||[]
       var maxV2=version
       /* build event type counts for diagnostics */
@@ -1654,7 +1706,7 @@ async function processLesson(courseId,lesson){
           try{
             await wait(1000)
             log('â†’ re-open final (lastVersion:0)...','')
-            var cmdResp3=await openLessonCommand(lessonId)
+            var cmdResp3=await openLessonCommand(lessonId,courseId)
             var events3=cmdResp3.eventHistory&&cmdResp3.eventHistory.events||[]
             /* build final event type summary */
             var _finalCounts={}
@@ -2081,7 +2133,15 @@ async function iniciar(){
     /* Try BFF for lesson list */
     try{
       var details=await api('GET',BFF+'/self-study/level-details?locale=en&courseId='+courseId)
+      /* Debug: dump the raw lesson objects to see what fields exist (id, lessonId, contentId, etc.) */
       if(details&&details.units){
+        console.log('[SpeakyAuto] level-details raw units:',details.units.length)
+        details.units.forEach(function(u,ui){
+          var ls=u.lessons||[];var all=ls.concat(u.tests||[]).concat(u.progressTests||[]).concat(u.assessments||[])
+          all.forEach(function(l){
+            console.log('[SpeakyAuto] lesson['+ui+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState,isLocked:l.isLocked}))
+          })
+        })
         var _seen=new Set()
         function _addLesson(l){if(l&&l.id&&!_seen.has(l.id)&&!l.isLocked&&l.progressState!=='passed'){_seen.add(l.id);lessons.push(l)}}
         details.units.forEach(function(unit){
@@ -2109,6 +2169,8 @@ async function iniciar(){
            from KNOWN_COURSES/BFF is the only valid enrollment ID for the API */
         lessons=disc.lessons
         log('Lessons encontradas na pÃ¡gina','wn')
+        /* Debug: dump DOM-discovered lesson objects */
+        lessons.forEach(function(l,i){console.log('[SpeakyAuto] DOM lesson['+i+']:',JSON.stringify({id:l.id,lessonId:l.lessonId,contentId:l.contentId,nodeId:l.nodeId,title:l.title,progressState:l.progressState}))})
       }
     }
 
