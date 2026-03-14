@@ -284,6 +284,54 @@ footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
       color:#cc7700 !important;
     }
 
+
+    /* ── Selection ── */
+    html.nostalgia-mode ::selection { background:rgba(255,120,0,.25) !important; color:#fff !important; }
+    html.nostalgia-mode ::-moz-selection { background:rgba(255,120,0,.25) !important; color:#fff !important; }
+
+    /* ── SVG fills purple kill ── */
+    html.nostalgia-mode svg [fill="#c084fc"],
+    html.nostalgia-mode svg [fill="#a855f7"],
+    html.nostalgia-mode svg [fill="#9d5cf7"] { fill:orange !important; }
+
+    /* ── Avatar purple kill ── */
+    html.nostalgia-mode .avatar-fallback,
+    html.nostalgia-mode [class*="avatar"]:not(img) {
+      background:linear-gradient(135deg,#1a0800,#cc7700) !important;
+      border-color:rgba(255,120,0,.3) !important;
+    }
+    html.nostalgia-mode img[class*="avatar"],
+    html.nostalgia-mode .av {
+      border-color:rgba(255,120,0,.3) !important;
+    }
+
+    /* ── Footer purple kill ── */
+    html.nostalgia-mode .foot b,
+    html.nostalgia-mode footer b,
+    html.nostalgia-mode .foot span[style],
+    html.nostalgia-mode footer span[style] {
+      color:orange !important;
+      -webkit-text-fill-color:orange !important;
+    }
+
+    /* ── Tutorial elements ── */
+    html.nostalgia-mode .tutorial-tag {
+      color:orange !important;
+      border-color:rgba(255,120,0,.3) !important;
+      background:rgba(255,120,0,.08) !important;
+    }
+    html.nostalgia-mode .tutorial-inner {
+      border-color:rgba(255,255,255,.08) !important;
+    }
+
+    /* ── Checkbox accent ── */
+    html.nostalgia-mode input[type="checkbox"] { accent-color:orange !important; }
+
+    /* ── Progress bar ── */
+    html.nostalgia-mode .progress-bar {
+      background:linear-gradient(90deg,orange,#f0f) !important;
+    }
+
     /* ══════════════════════════════════════════════════════
        NOSTALGIA BRAND BANNER
        ══════════════════════════════════════════════════════ */
