@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -356,6 +356,7 @@ footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
     }
 
   </style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
@@ -382,6 +383,8 @@ footer{margin-top:28px;font-size:.73rem;color:#334155;text-align:center}
   </details>
 
   <div id="alert-box"></div>
+
+  <div id="spTurnstile" class="cf-turnstile" data-sitekey="0x4AAAAAACqt-X4jwIrPElCk" data-theme="dark" data-size="flexible" style="margin:10px 0"></div>
 
   <button class="btn btn-primary" id="btn" onclick="iniciar()">🚀 Fazer Tudo no Speaky</button>
 
@@ -447,6 +450,8 @@ async function iniciar(){
   if(!ra || ra.length < 4){ showAlert('Informe o RA (ex: 1090766099sp).','err'); return }
   if(!/\d/.test(ra)){ showAlert('RA inválido.','err'); return }
   if(!senha){ showAlert('Informe a senha.','err'); return }
+  var cfToken = (typeof turnstile !== 'undefined') ? (turnstile.getResponse() || '') : ''
+  if(!cfToken){ showAlert('Resolva o captcha primeiro.','err'); return }
 
   var btn = document.getElementById('btn')
   btn.disabled = true
@@ -458,7 +463,7 @@ async function iniciar(){
   setProgress(5, 'Conectando ao servidor...')
 
   try {
-    var body = {ra: ra, senha: senha}
+    var body = {ra: ra, senha: senha, cfToken: cfToken}
     if(capKey) body.cap_key = capKey
 
     var r = await fetch(WORKER + '/sp/portal/run', {
@@ -538,6 +543,7 @@ function reset(){
   var btn = document.getElementById('btn')
   btn.disabled = false
   btn.textContent = '🚀 Fazer Tudo no Speaky'
+  if(typeof turnstile !== 'undefined') try{turnstile.reset()}catch(e){}
 }
 </script>
   <script>function toggleNostalgia(){var on=document.documentElement.classList.toggle('nostalgia-mode');localStorage.setItem('nostalgia',on?'1':'0');}</script>
@@ -562,3 +568,4 @@ function reset(){
   </script>
 </body>
 </html>
+
